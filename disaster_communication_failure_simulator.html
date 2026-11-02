@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EOC Dashboard: Disaster Communication Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #050505;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        .math-font { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Cinematic UI Enhancements */
+        .glow-blue { text-shadow: 0 0 10px rgba(56, 189, 248, 0.6); box-shadow: 0 0 15px rgba(56, 189, 248, 0.2); }
+        .glow-green { text-shadow: 0 0 10px rgba(52, 211, 153, 0.6); box-shadow: 0 0 15px rgba(52, 211, 153, 0.2); }
+        .glow-purple { text-shadow: 0 0 10px rgba(167, 139, 250, 0.6); box-shadow: 0 0 15px rgba(167, 139, 250, 0.2); }
+        .glow-red { text-shadow: 0 0 15px rgba(248, 113, 113, 0.8); }
+        
+        .panel {
+            background: linear-gradient(145deg, #111827 0%, #0f172a 100%);
+            border: 1px solid #1e293b;
+        }
+        .console-panel {
+            background: #000;
+            border: 1px solid #334155;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* Dark Mode Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 8px 0;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px; width: 14px;
+            border-radius: 50%;
+            background: currentColor;
+            cursor: pointer;
+            margin-top: -5px;
+            box-shadow: 0 0 10px currentColor;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+
+        .bar-transition { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s; }
+        
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Animation */
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .animate-blink { animation: blink 1s infinite; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Header -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 shrink-0 flex justify-between items-center z-10 shadow-md">
+        <div class="flex items-center gap-4">
+            <div class="w-3 h-3 rounded-full bg-red-500 animate-blink"></div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-widest text-slate-100 uppercase">EOC Operations Dashboard</h1>
+                <p class="text-xs text-slate-400 font-mono tracking-wide">High-Altitude Sector // Comm Link Analysis</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">Mission Clock (T-Plus)</div>
+            <div id="timer-display" class="math-font text-3xl font-bold text-red-500 glow-red">T+ 00:00</div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        
+        <!-- LEFT PANEL: Controls (w-4/12) -->
+        <aside class="lg:col-span-4 panel border-r border-slate-800 p-5 overflow-y-auto flex flex-col gap-6 relative">
+            
+            <!-- Disaster Controls -->
+            <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700 shadow-inner">
+                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">Simulation Parameters</h2>
+                <div class="mb-4">
+                    <label class="block text-xs text-slate-400 mb-1">Select Physical Threat Vector</label>
+                    <select id="disaster-type" class="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded p-2 text-sm focus:border-red-500 focus:outline-none">
+                        <option value="normal">Normal Operations (Baseline)</option>
+                        <option value="flood">Catastrophic Flood (Gradual)</option>
+                        <option value="storm">Severe Cyclonic Storm (Gradual)</option>
+                        <option value="earthquake">High-Magnitude Earthquake (Sudden)</option>
+                        <option value="landslide">Massive Landslide (Sudden)</option>
+                        <option value="avalanche">Avalanche (Sudden)</option>
+                        <option value="tsunami">Tsunami / Flash Inundation (Extreme)</option>
+                    </select>
+                </div>
+                <button id="btn-trigger" onclick="toggleSimulation()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded shadow-[0_0_15px_rgba(220,38,38,0.5)] transition uppercase tracking-widest text-sm">
+                    Initiate Disaster Protocol
+                </button>
+            </div>
+
+            <!-- Network Parameters -->
+            <div class="space-y-5">
+                
+                <!-- Digital -->
+                <div class="text-sky-400">
+                    <h3 class="text-xs font-bold uppercase tracking-wider mb-2 flex justify-between">
+                        <span>[Layer 1] Digital Terrestrial</span>
+                        <span class="text-slate-500 font-mono">520 Users</span>
+                    </h3>
+                    <div class="space-y-2 text-xs font-mono bg-slate-900/40 p-3 rounded border border-slate-800">
+                        <div class="flex justify-between"><label>Towers</label><span id="val-d-twr">5</span></div>
+                        <input type="range" id="d-twr" min="1" max="10" value="5" oninput="updateBaseCapacities()">
+                        
+                        <div class="flex justify-between"><label>Bandwidth (MHz)</label><span id="val-d-bw">100</span></div>
+                        <input type="range" id="d-bw" min="20" max="200" step="10" value="100" oninput="updateBaseCapacities()">
+                        
+                        <div class="flex justify-between"><label>Power Usage (kW)</label><span id="val-d-pwr">30</span></div>
+                        <input type="range" id="d-pwr" min="10" max="100" value="30" oninput="updateBaseCapacities()">
+                    </div>
+                </div>
+
+                <!-- Radio -->
+                <div class="text-emerald-400">
+                    <h3 class="text-xs font-bold uppercase tracking-wider mb-2 flex justify-between">
+                        <span>[Layer 2] Analog Radio</span>
+                        <span class="text-slate-500 font-mono">110 Users</span>
+                    </h3>
+                    <div class="space-y-2 text-xs font-mono bg-slate-900/40 p-3 rounded border border-slate-800">
+                        <div class="flex justify-between"><label>Antennas</label><span id="val-r-twr">2</span></div>
+                        <input type="range" id="r-twr" min="1" max="5" value="2" oninput="updateBaseCapacities()">
+                        
+                        <div class="flex justify-between"><label>Bandwidth (MHz)</label><span id="val-r-bw">15</span></div>
+                        <input type="range" id="r-bw" min="2" max="50" value="15" oninput="updateBaseCapacities()">
+                        
+                        <div class="flex justify-between"><label>Power Usage (kW)</label><span id="val-r-pwr">10</span></div>
+                        <input type="range" id="r-pwr" min="2" max="30" value="10" oninput="updateBaseCapacities()">
+                    </div>
+                </div>
+
+                <!-- Satellite -->
+                <div class="text-purple-400">
+                    <h3 class="text-xs font-bold uppercase tracking-wider mb-2 flex justify-between">
+                        <span>[Layer 3] Space Backhaul</span>
+                        <span class="text-slate-500 font-mono">6 Users</span>
+                    </h3>
+                    <div class="space-y-2 text-xs font-mono bg-slate-900/40 p-3 rounded border border-slate-800">
+                        <div class="flex justify-between"><label>Earth Stations</label><span id="val-s-twr">1</span></div>
+                        <input type="range" id="s-twr" min="1" max="3" value="1" oninput="updateBaseCapacities()">
+                        
+                        <div class="flex justify-between"><label>Bandwidth (MHz)</label><span id="val-s-bw">25</span></div>
+                        <input type="range" id="s-bw" min="5" max="100" value="25" oninput="updateBaseCapacities()">
+                        
+                        <div class="flex justify-between"><label>Power Usage (kW)</label><span id="val-s-pwr">15</span></div>
+                        <input type="range" id="s-pwr" min="5" max="50" value="15" oninput="updateBaseCapacities()">
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- RIGHT PANEL: Dashboard & Logs (w-8/12) -->
+        <section class="lg:col-span-8 flex flex-col bg-slate-950 overflow-hidden relative">
+            
+            <!-- Cards Container -->
+            <div class="p-6 grid grid-cols-1 gap-5 overflow-y-auto shrink-0">
+                
+                <!-- Digital Card -->
+                <div class="panel rounded-xl p-5 glow-blue border-l-4 border-l-sky-500 relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-sky-400 uppercase tracking-widest">Digital Interface</h3>
+                            <div class="text-xs text-slate-400 math-font mt-1">Fiber/Cellular Backbone</div>
+                        </div>
+                        <div class="text-right">
+                            <div id="d-active" class="math-font text-2xl font-bold text-slate-100">520 <span class="text-sm text-slate-500">/ 520 Users</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-8 mb-2">
+                        <!-- Health -->
+                        <div>
+                            <div class="flex justify-between text-xs uppercase tracking-wider text-slate-400 mb-1"><span>Infra Health</span> <span id="d-health-txt" class="font-bold text-slate-200">100%</span></div>
+                            <div class="h-2 bg-slate-800 rounded overflow-hidden">
+                                <div id="d-health-bar" class="h-full bg-sky-500 bar-transition" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <!-- Load -->
+                        <div>
+                            <div class="flex justify-between text-xs uppercase tracking-wider text-slate-400 mb-1"><span>Traffic Load</span> <span id="d-load-txt" class="font-bold text-slate-200">100%</span></div>
+                            <div class="h-2 bg-slate-800 rounded overflow-hidden relative">
+                                <div id="d-load-bar" class="h-full bg-slate-300 bar-transition" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 border-t border-slate-700/50 pt-3 flex justify-between text-xs math-font text-slate-400">
+                        <span id="d-status">Status: NOMINAL</span>
+                        <span>Power Drain: <span id="d-pwr-txt" class="text-sky-300">30.0 kW</span></span>
+                    </div>
+                </div>
+
+                <!-- Radio Card -->
+                <div class="panel rounded-xl p-5 glow-green border-l-4 border-l-emerald-500 relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-emerald-400 uppercase tracking-widest">Analog Failsafe</h3>
+                            <div class="text-xs text-slate-400 math-font mt-1">AM/FM Walkie-Talkies</div>
+                        </div>
+                        <div class="text-right">
+                            <div id="r-active" class="math-font text-2xl font-bold text-slate-100">110 <span class="text-sm text-slate-500">/ 110 Users</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-8 mb-2">
+                        <!-- Health -->
+                        <div>
+                            <div class="flex justify-between text-xs uppercase tracking-wider text-slate-400 mb-1"><span>Infra Health</span> <span id="r-health-txt" class="font-bold text-slate-200">100%</span></div>
+                            <div class="h-2 bg-slate-800 rounded overflow-hidden">
+                                <div id="r-health-bar" class="h-full bg-emerald-500 bar-transition" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <!-- Load -->
+                        <div>
+                            <div class="flex justify-between text-xs uppercase tracking-wider text-slate-400 mb-1"><span>Traffic Load</span> <span id="r-load-txt" class="font-bold text-slate-200">73%</span></div>
+                            <div class="h-2 bg-slate-800 rounded overflow-hidden relative">
+                                <div id="r-load-bar" class="h-full bg-slate-300 bar-transition" style="width: 73%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 border-t border-slate-700/50 pt-3 flex justify-between text-xs math-font text-slate-400">
+                        <span id="r-status">Status: NOMINAL</span>
+                        <span>Power Drain: <span id="r-pwr-txt" class="text-emerald-300">7.3 kW</span></span>
+                    </div>
+                </div>
+
+                <!-- Satellite Card -->
+                <div class="panel rounded-xl p-5 glow-purple border-l-4 border-l-purple-500 relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-purple-400 uppercase tracking-widest">Space Backhaul</h3>
+                            <div class="text-xs text-slate-400 math-font mt-1">Geostationary Uplink</div>
+                        </div>
+                        <div class="text-right">
+                            <div id="s-active" class="math-font text-2xl font-bold text-slate-100">6 <span class="text-sm text-slate-500">/ 6 Users</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-8 mb-2">
+                        <!-- Health -->
+                        <div>
+                            <div class="flex justify-between text-xs uppercase tracking-wider text-slate-400 mb-1"><span>Infra Health</span> <span id="s-health-txt" class="font-bold text-slate-200">100%</span></div>
+                            <div class="h-2 bg-slate-800 rounded overflow-hidden">
+                                <div id="s-health-bar" class="h-full bg-purple-500 bar-transition" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <!-- Load -->
+                        <div>
+                            <div class="flex justify-between text-xs uppercase tracking-wider text-slate-400 mb-1"><span>Traffic Load</span> <span id="s-load-txt" class="font-bold text-slate-200">30%</span></div>
+                            <div class="h-2 bg-slate-800 rounded overflow-hidden relative">
+                                <div id="s-load-bar" class="h-full bg-slate-300 bar-transition" style="width: 30%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 border-t border-slate-700/50 pt-3 flex justify-between text-xs math-font text-slate-400">
+                        <span id="s-status">Status: NOMINAL</span>
+                        <span>Power Drain: <span id="s-pwr-txt" class="text-purple-300">4.5 kW</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console Log -->
+            <div class="console-panel flex-grow m-6 mt-0 p-4 rounded-xl flex flex-col">
+                <h4 class="text-xs uppercase tracking-widest text-slate-500 mb-2 border-b border-slate-800 pb-2">Live System Log</h4>
+                <div id="log-container" class="flex-grow overflow-y-auto math-font text-xs md:text-sm space-y-1">
+                    <div class="text-slate-400">[SYS] EOC Communications Node Online. Standing by.</div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // --- State Variables ---
+        const DEMAND_D = 520;
+        const DEMAND_R = 110;
+        const DEMAND_S = 6;
+        const TOTAL_USERS = 636;
+
+        let capD, capR, capS;
+        let base_capD = 520, base_capR = 150, base_capS = 20; // Nominal capacities
+        
+        let healthD = 100, healthR = 100, healthS = 100;
+        
+        let simRunning = false;
+        let simTimer = null;
+        let timeMinutes = 0; // Simulation time in minutes
+
+        // Flags to prevent spamming logs
+        let flags = {
+            d50: false, d0: false, 
+            r50: false, r0: false, 
+            s50: false, s0: false
+        };
+
+        // --- Core Functions ---
+
+        function init() {
+            updateBaseCapacities();
+            updateUI();
+        }
+
+        function updateBaseCapacities() {
+            // Update Slider Text
+            const dtwr = document.getElementById('d-twr').value;
+            const dbw = document.getElementById('d-bw').value;
+            document.getElementById('val-d-twr').innerText = dtwr;
+            document.getElementById('val-d-bw').innerText = dbw;
+            document.getElementById('val-d-pwr').innerText = document.getElementById('d-pwr').value;
+
+            const rtwr = document.getElementById('r-twr').value;
+            const rbw = document.getElementById('r-bw').value;
+            document.getElementById('val-r-twr').innerText = rtwr;
+            document.getElementById('val-r-bw').innerText = rbw;
+            document.getElementById('val-r-pwr').innerText = document.getElementById('r-pwr').value;
+
+            const stwr = document.getElementById('s-twr').value;
+            const sbw = document.getElementById('s-bw').value;
+            document.getElementById('val-s-twr').innerText = stwr;
+            document.getElementById('val-s-bw').innerText = sbw;
+            document.getElementById('val-s-pwr').innerText = document.getElementById('s-pwr').value;
+
+            // Calculate Max Capacities based on sliders
+            // (Base * (twr/base_twr) * (bw/base_bw))
+            capD = base_capD * (dtwr / 5) * (dbw / 100);
+            capR = base_capR * (rtwr / 2) * (rbw / 15);
+            capS = base_capS * (stwr / 1) * (sbw / 25);
+
+            if(!simRunning && timeMinutes === 0) updateUI();
+        }
+
+        function toggleSimulation() {
+            const btn = document.getElementById('btn-trigger');
+            if (simRunning) {
+                // Reset
+                clearInterval(simTimer);
+                simRunning = false;
+                timeMinutes = 0;
+                healthD = 100; healthR = 100; healthS = 100;
+                Object.keys(flags).forEach(k => flags[k] = false);
+                document.getElementById('log-container').innerHTML = '<div class="text-slate-400">[SYS] Simulation Reset. Standing by.</div>';
+                btn.innerText = "Initiate Disaster Protocol";
+                btn.className = "w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded shadow-[0_0_15px_rgba(220,38,38,0.5)] transition uppercase tracking-widest text-sm";
+                document.getElementById('disaster-type').disabled = false;
+                updateUI();
+            } else {
+                // Start
+                simRunning = true;
+                const disaster = document.getElementById('disaster-type').value;
+                document.getElementById('disaster-type').disabled = true;
+                btn.innerText = "Abort / Reset Simulation";
+                btn.className = "w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded transition uppercase tracking-widest text-sm";
+                
+                log(`[ALERT] Protocol initiated: ${disaster.toUpperCase()}`, 'warn');
+                
+                // Real time 500ms = Sim time 5 minutes
+                simTimer = setInterval(() => tick(disaster), 500);
+            }
+        }
+
+        function tick(disaster) {
+            timeMinutes += 5;
+            applyDamage(disaster, timeMinutes);
+            updateUI();
+        }
+
+        function applyDamage(type, t) {
+            switch(type) {
+                case 'flood':
+                    if (t === 30) { healthD -= 20; log("Floodwaters breaching ground-level cellular units.", "warn"); }
+                    if (t === 60) { healthD -= 40; healthR -= 10; log("Power grid submerged. Digital backup generators failing.", "err"); }
+                    if (t === 120) { healthD = 0; healthR -= 30; log("Regional inundation complete. Terrestrial digital loss total.", "err"); }
+                    break;
+                case 'storm':
+                    if (t === 10) { log("Hurricane-force winds detected at high altitude.", "warn"); }
+                    if (t === 30) { healthR -= 40; healthS -= 50; log("Wind shearing analog antennas and misaligning satellite dishes.", "err"); }
+                    if (t === 60) { healthD -= 30; log("Cellular towers swaying. Fiber intact but transmitters damaged.", "warn"); }
+                    if (t === 90) { healthR -= 30; healthS = 0; log("Satellite uplink lost due to extreme atmospheric interference.", "err"); }
+                    break;
+                case 'earthquake':
+                    if (t === 5) { 
+                        healthD = 5; healthR = 50; 
+                        log("MASSIVE SEISMIC EVENT. Underground fiber severed instantly.", "err");
+                        log("Tower foundations compromised. 95% digital capacity lost.", "err");
+                    }
+                    break;
+                case 'landslide':
+                case 'avalanche':
+                    if (t === 5) {
+                        healthD = 10; healthR = 60;
+                        log("Catastrophic terrain collapse on primary mountain slopes.", "err");
+                    }
+                    break;
+                case 'tsunami':
+                    if (t === 5) { log("Flash inundation / Tsunami impact imminent.", "warn"); }
+                    if (t === 10) { 
+                        healthD = 0; healthR = 0; 
+                        log("WAVE IMPACT. Complete destruction of low-altitude infrastructure.", "err");
+                    }
+                    break;
+            }
+
+            // Ensure bounds
+            healthD = Math.max(0, healthD);
+            healthR = Math.max(0, healthR);
+            healthS = Math.max(0, healthS);
+
+            // Conditional Logs
+            if (healthD <= 50 && !flags.d50 && healthD > 0) { log("Digital layer capacity dropping critically.", "warn"); flags.d50 = true; }
+            if (healthD === 0 && !flags.d0) { log("DIGITAL NETWORK OFFLINE. Users migrating.", "err"); flags.d0 = true; }
+            if (healthR <= 50 && !flags.r50 && healthR > 0) { log("Analog radio network struggling under environmental load.", "warn"); flags.r50 = true; }
+            if (healthR === 0 && !flags.r0) { log("ANALOG NETWORK OFFLINE. Users migrating.", "err"); flags.r0 = true; }
+            if (healthS <= 50 && !flags.s50 && healthS > 0) { log("Satellite backhaul stability compromised.", "warn"); flags.s50 = true; }
+            if (healthS === 0 && !flags.s0) { log("SATELLITE BACKHAUL OFFLINE.", "err"); flags.s0 = true; }
+        }
+
+        function updateUI() {
+            // Timer formatting
+            const hours = Math.floor(timeMinutes / 60).toString().padStart(2, '0');
+            const mins = (timeMinutes % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `T+ ${hours}:${mins}`;
+
+            // Actual current capacity based on health
+            const curCapD = capD * (healthD / 100);
+            const curCapR = capR * (healthR / 100);
+            const curCapS = capS * (healthS / 100);
+
+            // --- Cascading Burden Algorithm ---
+            // 1. Digital
+            const activeD = Math.min(DEMAND_D, curCapD);
+            const strandedD = DEMAND_D - activeD;
+            const loadD_pct = curCapD > 0 ? (DEMAND_D / curCapD) * 100 : (DEMAND_D > 0 ? 999 : 0);
+
+            // 2. Radio (takes base demand + stranded digital)
+            const demandR_total = DEMAND_R + strandedD;
+            const activeR = Math.min(demandR_total, curCapR);
+            const strandedR = demandR_total - activeR;
+            const loadR_pct = curCapR > 0 ? (demandR_total / curCapR) * 100 : (demandR_total > 0 ? 999 : 0);
+
+            // 3. Satellite (takes base demand + stranded radio)
+            const demandS_total = DEMAND_S + strandedR;
+            const activeS = Math.min(demandS_total, curCapS);
+            const strandedS = demandS_total - activeS; // Total users completely disconnected
+            const loadS_pct = curCapS > 0 ? (demandS_total / curCapS) * 100 : (demandS_total > 0 ? 999 : 0);
+
+            // Check total blackout
+            if (strandedS >= TOTAL_USERS && timeMinutes > 0 && simRunning) {
+                log(`[CRITICAL] TOTAL COMMUNICATION BLACKOUT. 0 Active Users.`, `err`);
+                clearInterval(simTimer);
+                simRunning = false;
+            } else if (strandedS > 0 && timeMinutes > 0) {
+                // Occasional warning about dropped packets
+                if (Math.random() > 0.7) log(`Network saturated. ${Math.floor(strandedS)} civilian connections dropped.`, 'warn');
+            }
+
+            // Power logic: Power scales linearly with load% (up to a max cap to prevent insane numbers)
+            const pD_base = parseFloat(document.getElementById('d-pwr').value);
+            const pR_base = parseFloat(document.getElementById('r-pwr').value);
+            const pS_base = parseFloat(document.getElementById('s-pwr').value);
+            
+            const pwrD = curCapD > 0 ? pD_base * (Math.min(loadD_pct, 200) / 100) : 0;
+            const pwrR = curCapR > 0 ? pR_base * (Math.min(loadR_pct, 500) / 100) : 0;
+            const pwrS = curCapS > 0 ? pS_base * (Math.min(loadS_pct, 1000) / 100) : 0;
+
+            // Render Cards
+            renderCard('d', healthD, loadD_pct, activeD, DEMAND_D, pwrD);
+            renderCard('r', healthR, loadR_pct, activeR, demandR_total, pwrR);
+            renderCard('s', healthS, loadS_pct, activeS, demandS_total, pwrS);
+        }
+
+        function renderCard(prefix, health, loadPct, active, demand, pwr) {
+            // Health
+            document.getElementById(`${prefix}-health-txt`).innerText = `${Math.floor(health)}%`;
+            const hBar = document.getElementById(`${prefix}-health-bar`);
+            hBar.style.width = `${health}%`;
+            hBar.style.backgroundColor = health > 50 ? (prefix==='d'?'#0ea5e9':prefix==='r'?'#10b981':'#a855f7') : (health > 20 ? '#f59e0b' : '#ef4444');
+
+            // Load
+            const visualLoad = Math.min(loadPct, 100);
+            document.getElementById(`${prefix}-load-txt`).innerText = loadPct >= 999 ? 'FAIL' : `${Math.floor(loadPct)}%`;
+            document.getElementById(`${prefix}-load-txt`).className = loadPct > 100 ? 'font-bold text-red-500 animate-pulse' : 'font-bold text-slate-200';
+            const lBar = document.getElementById(`${prefix}-load-bar`);
+            lBar.style.width = `${visualLoad}%`;
+            lBar.style.backgroundColor = loadPct > 100 ? '#ef4444' : '#cbd5e1';
+
+            // Data
+            document.getElementById(`${prefix}-active`).innerHTML = `${Math.floor(active)} <span class="text-sm text-slate-500">/ ${Math.floor(demand)} Users</span>`;
+            document.getElementById(`${prefix}-pwr-txt`).innerText = `${pwr.toFixed(1)} kW`;
+
+            // Status Text
+            let status = "NOMINAL";
+            if (health === 0) status = "OFFLINE (DESTROYED)";
+            else if (loadPct > 100) status = "OVERLOADED (DROPPING PACKETS)";
+            else if (health < 50) status = "DEGRADED";
+            
+            const statusEl = document.getElementById(`${prefix}-status`);
+            statusEl.innerText = `Status: ${status}`;
+            statusEl.className = health === 0 || loadPct > 100 ? 'text-red-500 font-bold' : 'text-slate-400';
+        }
+
+        function log(msg, type='info') {
+            const container = document.getElementById('log-container');
+            const el = document.createElement('div');
+            
+            const hours = Math.floor(timeMinutes / 60).toString().padStart(2, '0');
+            const mins = (timeMinutes % 60).toString().padStart(2, '0');
+            const timeStr = `[T+${hours}:${mins}]`;
+            
+            let color = 'text-sky-300';
+            if (type === 'warn') color = 'text-yellow-400';
+            if (type === 'err') color = 'text-red-500 font-bold';
+
+            el.className = color;
+            el.innerText = `${timeStr} ${msg}`;
+            
+            container.prepend(el);
+            if(container.children.length > 30) container.removeChild(container.lastChild);
+        }
+
+        // Run init
+        init();
+
+    </script>
+</body>
+</html>
